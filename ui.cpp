@@ -1,3 +1,6 @@
+#ifdef CARDENZA_TARGET
+#include "cardenza/cardenza_m5_audio.h"
+#endif
 // ============================================================
 // Microgroove - ui.cpp
 // 240x135, sprite double-buffered. 5 pages.
@@ -39,7 +42,11 @@ static const char* oscNames[]  = {"SAW","SQR","TRI","SIN","WT"};
 void uiInit() {
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
+#ifdef CARDENZA_TARGET
+    cardenza_m5_require(canvas.createSprite(SCREEN_W, SCREEN_H),"Display memory FAILED");
+#else
     canvas.createSprite(SCREEN_W, SCREEN_H);
+#endif
     canvas.setTextFont(1);
     canvas.setTextSize(1);
 }

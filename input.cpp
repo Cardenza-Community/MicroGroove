@@ -334,7 +334,9 @@ static void doLong(uint8_t act) {
 
         case ACT_AUX:                         // long AUX = mic record
             if (micRecStart(g_curDrumLane)) g_recPadKc = (uint8_t)'.';
+#ifndef CARDENZA_TARGET
             else uiStatus("MIC BUSY");
+#endif
             break;
         default: break;
     }

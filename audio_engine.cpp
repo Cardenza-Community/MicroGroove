@@ -1,3 +1,6 @@
+#ifdef CARDENZA_TARGET
+#include "cardenza/cardenza_m5_audio.h"
+#endif
 // ============================================================
 // CardputerGroovebox - audio_engine.cpp
 // Render task derived from qwertyuu/Cardputer-Adv-Tracker (MIT),
@@ -8,6 +11,10 @@
 #include "sampler.h"
 #include <M5Cardputer.h>
 #include "mic_sampler.h"
+#ifdef CARDENZA_TARGET
+#include <atomic>
+static std::atomic<bool> pauseRequested{false}, paused{false};
+#endif
 
 float g_scopeBuf[SCREEN_W];
 volatile int g_scopeIdx = 0;
@@ -21,6 +28,13 @@ static void audioTask(void*) {
     int cur = 0;
 
     while (true) {
+#ifdef CARDENZA_TARGET
+        if (pauseRequested.load()) {
+            paused.store(true);
+            while (pauseRequested.load()) vTaskDelay(1);
+            paused.store(false);
+        }
+#endif
         int16_t* buf = buffers[cur];
 
         for (int i = 0; i < AUDIO_BUF_LEN; i++) {
@@ -56,5 +70,17 @@ static void audioTask(void*) {
 }
 
 void audioEngineStart() {
+#ifdef CARDENZA_TARGET
+    cardenza_m5_require(xTaskCreatePinnedToCore(audioTask,"audio",8192,nullptr,1,&s_task,0)==pdPASS,"Audio task init FAILED");
+#else
     xTaskCreatePinnedToCore(audioTask, "audio", 8192, nullptr, 1, &s_task, 0);
+#endif
 }
+
+#ifdef CARDENZA_TARGET
+void audioEnginePause() {
+    pauseRequested.store(true);
+    while (s_task && !paused.load()) vTaskDelay(1);
+}
+void audioEngineResume() { pauseRequested.store(false); }
+#endif

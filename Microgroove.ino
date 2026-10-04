@@ -1,5 +1,6 @@
+#include "cardenza/cardenza_m5_audio.h"
 // ============================================================
-// Microgroove — a pocket groovebox for the M5Stack Cardputer-ADV
+// Microgroove â€” a pocket groovebox for the M5Stack Cardputer-ADV
 // by lebiro.studio
 //   - 3 synth tracks (saw/sqr/tri/sin + wavetables, 303-style resonant
 //     filter, accent, slide); each track switchable 1-3 voices
@@ -32,7 +33,13 @@ static bool s_sdOk = false;
 
 void setup() {
     auto cfg = M5.config();
+    Serial.begin(115200);
     M5Cardputer.begin(cfg, true);
+    if (M5.isCardenza()) {
+        Serial.printf("[Cardenza] runtime ES8156 %s; heap=%u\n", M5.cardenzaCodecReady()?"ready":"FAILED", ESP.getFreeHeap());
+        cardenza_m5_require(M5.cardenzaCodecReady(), "ES8156 INIT FAILED");
+    }
+
 
     uiInit();
 
@@ -43,7 +50,8 @@ void setup() {
     spk.dma_buf_count = 4;
     spk.dma_buf_len   = AUDIO_BUF_LEN;
     M5Cardputer.Speaker.config(spk);
-    M5Cardputer.Speaker.begin();
+
+    cardenza_m5_require(M5Cardputer.Speaker.begin(),"Speaker init FAILED");
     M5Cardputer.Speaker.setVolume(200);
 
     // SD (Cardputer-ADV pinout)

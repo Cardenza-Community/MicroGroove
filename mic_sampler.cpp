@@ -2,6 +2,8 @@
 // Microgroove [BRANCH: live-sampling] - mic_sampler.cpp
 // ============================================================
 #include "mic_sampler.h"
+#include "audio_engine.h"
+#include "cardenza/cardenza_m5_audio.h"
 #include "sampler.h"
 #include "sequencer.h"
 #include "ui.h"
@@ -97,10 +99,21 @@ static bool commitToLane(uint8_t lane, const char* base, uint8_t& counter,
 
 // ---------- mic recording ----------
 bool micRecStart(uint8_t lane) {
-    if (s_recActive || !g_scratch) return false;
+    if (s_recActive) { uiStatus("MIC BUSY"); return false; }
+    if (!g_scratch) { uiStatus("MIC MEMORY FAILED"); return false; }
+    if (g_rsmpRemain || s_rsmpPending) { uiStatus("RESAMPLE ACTIVE"); return false; }
     sequencerStop();
+    audioEnginePause();
     M5Cardputer.Speaker.end();          // ES8311: avoid duplex contention (verify on hw)
-    M5Cardputer.Mic.begin();
+    if (!M5Cardputer.Mic.begin()) {
+        M5Cardputer.Mic.end();
+        {
+            cardenza_m5_require(M5Cardputer.Speaker.begin(),"Speaker resume FAILED");
+            audioEngineResume();
+        }
+        uiStatus("MIC INIT FAILED");
+        return false;
+    }
     s_recLane = lane; s_recActive = true;
     g_scratchWr = 0; s_curChunk = 0; s_level = 0;
     M5Cardputer.Mic.record(s_chunk[0], CHUNK, MIC_RATE);
@@ -146,7 +159,8 @@ void micRecStop() {
     if (!s_recActive) return;
     s_recActive = false;
     M5Cardputer.Mic.end();
-    M5Cardputer.Speaker.begin();
+    cardenza_m5_require(M5Cardputer.Speaker.begin(),"Speaker resume FAILED");
+    audioEngineResume();
     g_holdProg = 0; g_holdLabel[0] = 0;
 
     uint32_t start, len;
